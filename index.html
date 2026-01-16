@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bike Project Manager</title>
+    <title>Project Manager</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -22,7 +22,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // --- LOGIKA USER ---
         let rawInput = localStorage.getItem('xsr_user_key');
         if (!rawInput) {
             rawInput = prompt("Masukkan Username:") || "guest";
@@ -33,12 +32,7 @@
         const userPath = `users/${userKey}`;
         const dataRef = ref(db, userPath);
 
-        let state = { 
-            projectTitle: "Project: " + userKey.toUpperCase(), 
-            history: [], 
-            checkedStates: {}, 
-            customItems: [] 
-        };
+        let state = { projectTitle: "Project: " + userKey.toUpperCase(), history: [], checkedStates: {}, customItems: [] };
 
         const jacquelynDefaults = [
             { name: "Helm KYT R2R", price: 2100000 },
@@ -51,6 +45,17 @@
             { name: "Phone Holder GUB", price: 50000 },
             { name: "Radiator Guard", price: 150000 }
         ];
+
+        // --- FUNGSI FORMAT INPUT (TITIK OTOMATIS) ---
+        window.formatInput = (input) => {
+            let val = input.value.replace(/\D/g, ""); // Hapus karakter non-angka
+            if (val === "") return;
+            input.value = new Intl.NumberFormat('id-ID').format(val);
+        };
+
+        const getRawValue = (id) => {
+            return parseFloat(document.getElementById(id).value.replace(/\./g, "")) || 0;
+        };
 
         window.importJacquelynData = () => {
             if(confirm("Gunakan list barang default Jacquelyn?")) {
@@ -65,7 +70,7 @@
         
         window.addNewItem = () => {
             const name = document.getElementById('item-name').value;
-            const price = parseFloat(document.getElementById('item-price').value);
+            const price = getRawValue('item-price');
             if (!name || !price) return;
             if(!state.customItems) state.customItems = [];
             state.customItems.push({ name, price });
@@ -74,9 +79,17 @@
             document.getElementById('item-price').value = '';
         };
 
+        window.deleteItem = (index) => {
+            if(confirm(`Hapus "${state.customItems[index].name}"?`)) {
+                state.customItems.splice(index, 1);
+                if(state.checkedStates) delete state.checkedStates[index];
+                window.saveData();
+            }
+        };
+
         window.addTransaction = (type) => {
             const desc = document.getElementById('desc-input').value;
-            const amount = parseFloat(document.getElementById('amount-input').value);
+            const amount = getRawValue('amount-input');
             if (!desc || !amount) return;
             if(!state.history) state.history = [];
             state.history.push({ desc, amount, type });
@@ -93,33 +106,25 @@
 
         onValue(dataRef, (snapshot) => {
             const data = snapshot.val();
-            if (data) { 
-                state = data; 
-            }
+            if (data) state = data;
             render();
         });
 
         function render() {
-            // Update Judul
             document.getElementById('main-title').innerText = state.projectTitle || "Project: " + userKey.toUpperCase();
-            
-            // Area Tombol Khusus Jacquelyn
             document.getElementById('migrasi-area').style.display = (userKey === 'jacquelyn') ? 'block' : 'none';
 
             const checklistBody = document.getElementById('checklist-body');
             const tIn = document.getElementById('table-in');
             const tOut = document.getElementById('table-out');
-            
             let wallet = 0, remainingTarget = 0, spentTarget = 0;
             
             const history = state.history || [];
             const customItems = state.customItems || [];
             const checkedStates = state.checkedStates || {};
 
-            // Hitung Wallet dari History
             history.forEach(h => { wallet += (h.type === 'IN' ? h.amount : -h.amount); });
 
-            // Render History
             tIn.innerHTML = ''; tOut.innerHTML = '';
             history.slice().reverse().forEach(h => {
                 const fmtPrice = new Intl.NumberFormat('id-ID').format(h.amount);
@@ -127,25 +132,20 @@
                 if (h.type === 'IN') tIn.innerHTML += row; else tOut.innerHTML += row;
             });
 
-            // Render Checklist & Hitung Sisa
             checklistBody.innerHTML = '';
             customItems.forEach((item, i) => {
                 const isChecked = checkedStates[i];
-                if (isChecked) { 
-                    spentTarget += item.price; 
-                    wallet -= item.price; 
-                } else { 
-                    remainingTarget += item.price; 
-                }
+                if (isChecked) { spentTarget += item.price; wallet -= item.price; } 
+                else { remainingTarget += item.price; }
                 const fmtItemPrice = new Intl.NumberFormat('id-ID').format(item.price);
                 checklistBody.innerHTML += `<tr class="${isChecked ? 'checked' : ''}">
                     <td class="col-check"><input type="checkbox" ${isChecked ? 'checked' : ''} onmousedown="toggle(${i})" onclick="return false;"></td>
                     <td>${item.name}</td>
                     <td style="text-align: right;">${fmtItemPrice}</td>
+                    <td style="text-align: center; width: 30px;"><span class="btn-delete" onclick="deleteItem(${i})">×</span></td>
                 </tr>`;
             });
 
-            // Update Dashboard
             document.getElementById('wallet-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(wallet);
             document.getElementById('target-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(remainingTarget);
             
@@ -157,9 +157,7 @@
             if (percent === 100 && totalPlan > 0 && !window.hasCelebrated) {
                 confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 window.hasCelebrated = true;
-            } else if (percent < 100) { 
-                window.hasCelebrated = false; 
-            }
+            } else if (percent < 100) { window.hasCelebrated = false; }
         }
     </script>
     <style>
@@ -175,10 +173,11 @@
         input { background: #000; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
         .btn-in { background: var(--success); } .btn-out { background: var(--danger); color: #fff; }
-        .btn-migrasi { background: #ffaa00; color: #000; }
-        .target-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .btn-migrasi { background: #ffaa00; color: #000; margin-bottom: 15px;}
+        .btn-delete { color: var(--danger); font-weight: bold; cursor: pointer; font-size: 1.2em; padding: 0 5px; }
+        .target-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
         .target-table tr.checked { opacity: 0.3; text-decoration: line-through; }
-        .target-table td { padding: 10px 5px; border-bottom: 1px solid #222; }
+        .target-table td { padding: 10px 4px; border-bottom: 1px solid #222; }
         .txt-success { color: var(--success); } .txt-danger { color: var(--danger); }
         .hist-table { width: 100%; font-size: 0.75em; border-collapse: collapse; }
     </style>
@@ -186,11 +185,9 @@
 <body>
     <div class="main-title" id="main-title">BIKE PROJECT</div>
     <div class="container">
-        
         <div id="migrasi-area" style="display:none;">
             <button class="btn-migrasi" onclick="importJacquelynData()">LOAD DATA JACQUELYN</button>
         </div>
-
         <div class="dashboard">
             <div style="font-size: 0.7em; opacity: 0.5;">DANA TERSEDIA:</div>
             <div class="main-balance" id="wallet-val">Rp0</div>
@@ -198,31 +195,26 @@
             <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
             <div id="progress-percent" style="font-size: 0.6em; color: var(--accent-color); text-align: right;">0%</div>
         </div>
-
         <div class="input-group">
             <input type="text" id="item-name" placeholder="Tambah Barang Baru">
-            <input type="number" id="item-price" placeholder="Harga Rp">
+            <input type="text" id="item-price" placeholder="Harga Rp (Otomatis Titik)" oninput="formatInput(this)">
             <button style="background: #333; color: #fff;" onclick="addNewItem()">+ Simpan Barang</button>
         </div>
-
         <div class="input-group">
-            <input type="text" id="desc-input" placeholder="Ket. Dompet (Gajian/Beli Bensin)">
-            <input type="number" id="amount-input" placeholder="Nominal Rp">
+            <input type="text" id="desc-input" placeholder="Ket. Dompet">
+            <input type="text" id="amount-input" placeholder="Nominal Rp (Otomatis Titik)" oninput="formatInput(this)">
             <div style="display: flex; gap: 8px;">
                 <button class="btn-in" onclick="addTransaction('IN')">Masuk</button>
                 <button class="btn-out" onclick="addTransaction('OUT')">Keluar</button>
             </div>
         </div>
-
         <h3 style="font-size: 0.8em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 8px;">CHECKLIST MODIF</h3>
         <table class="target-table"><tbody id="checklist-body"></tbody></table>
-        
-        <h3 style="font-size: 0.8em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 8px; margin-top: 20px;">HISTORY DOMPET</h3>
+        <h3 style="font-size: 0.8em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 8px; margin-top: 20px;">HISTORY</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div><table class="hist-table"><tbody id="table-in"></tbody></table></div>
             <div><table class="hist-table"><tbody id="table-out"></tbody></table></div>
         </div>
-
         <button style="background: transparent; color: #444; font-size: 0.7em; border: 1px solid #222; margin-top: 20px;" onclick="logout()">LOGOUT / GANTI USER</button>
     </div>
 </body>
