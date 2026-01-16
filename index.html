@@ -36,16 +36,23 @@
         ];
 
         let state = { history: [], checkedStates: {} };
-        window.isAuthorized = false;
+
+        // FUNGSI CEK KEAMANAN (INGAT SAYA)
+        function checkAuth() {
+            if (localStorage.getItem('jacquelyn_auth') === 'true') return true;
+            const pin = prompt("Masukkan PIN Keamanan Jacquelyn:");
+            if (pin === MY_PIN) {
+                localStorage.setItem('jacquelyn_auth', 'true');
+                return true;
+            }
+            alert("PIN Salah!");
+            return false;
+        }
 
         function formatIDR(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 
         window.addTransaction = (type) => {
-            if(!window.isAuthorized) {
-                const pin = prompt("Masukkan PIN Keamanan:");
-                if(pin !== MY_PIN) return alert("PIN Salah!");
-                window.isAuthorized = true;
-            }
+            if(!checkAuth()) return;
             const desc = document.getElementById('desc-input').value;
             const amount = parseFloat(document.getElementById('amount-input').value);
             if (!desc || !amount) return;
@@ -56,11 +63,7 @@
         };
 
         window.toggle = (i) => {
-            if(!window.isAuthorized) {
-                const pin = prompt("Konfirmasi PIN untuk Jacquelyn:");
-                if(pin !== MY_PIN) return alert("PIN Salah!");
-                window.isAuthorized = true;
-            }
+            if(!checkAuth()) return;
             state.checkedStates[i] = !state.checkedStates[i];
             set(dataRef, state);
         };
