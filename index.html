@@ -8,7 +8,6 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Firebase Config kamu
         const firebaseConfig = {
             apiKey: "AIzaSyDcnPKvVuiru2S7HcbCJiGrl3H3Zovoafs",
             authDomain: "xsr-project.firebaseapp.com",
@@ -22,6 +21,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const dataRef = ref(db, 'project_data');
+        const MY_PIN = "1505"; // GANTI PIN KAMU DI SINI
 
         const items = [
             { name: "Helm KYT R2R", price: 2100000 },
@@ -40,17 +40,26 @@
         function formatIDR(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 
         window.addTransaction = (type) => {
+            const pin = prompt("Masukkan PIN Keamanan Jacquelyn:");
+            if(pin !== MY_PIN) return alert("PIN Salah!");
+            
             const desc = document.getElementById('desc-input').value;
             const amount = parseFloat(document.getElementById('amount-input').value);
             if (!desc || !amount) return;
             state.history.push({ desc, amount, type });
+            // Kirim kunci rahasia supaya Firebase izinkan akses
+            set(ref(db, 'secret_key'), 'JACQUELYN2026');
             set(dataRef, state);
             document.getElementById('desc-input').value = '';
             document.getElementById('amount-input').value = '';
         };
 
         window.toggle = (i) => {
+            const pin = prompt("Konfirmasi PIN untuk checklist:");
+            if(pin !== MY_PIN) return alert("PIN Salah!");
+            
             state.checkedStates[i] = !state.checkedStates[i];
+            set(ref(db, 'secret_key'), 'JACQUELYN2026');
             set(dataRef, state);
         };
 
@@ -64,27 +73,25 @@
             }
         });
 
+        // ... Fungsi Render Tetap Sama ...
         function render() {
             const checklistBody = document.getElementById('checklist-body');
             const tIn = document.getElementById('table-in');
             const tOut = document.getElementById('table-out');
             let wallet = 0, remainingTarget = 0, spentTarget = 0;
             const totalPlan = items.reduce((a, b) => a + b.price, 0);
-
             tIn.innerHTML = ''; tOut.innerHTML = '';
             state.history.slice().reverse().forEach(h => {
                 const row = `<tr><td>${h.desc}</td><td style="text-align: right;" class="${h.type=='IN'?'txt-success':'txt-danger'}">${h.type=='IN'?'+':'-'} ${formatIDR(h.amount)}</td></tr>`;
                 if (h.type === 'IN') { wallet += h.amount; tIn.innerHTML += row; }
                 else { wallet -= h.amount; tOut.innerHTML += row; }
             });
-
             checklistBody.innerHTML = '';
             items.forEach((item, i) => {
                 const isChecked = state.checkedStates[i];
                 if (!isChecked) remainingTarget += item.price; else spentTarget += item.price;
-                checklistBody.innerHTML += `<tr class="${isChecked ? 'checked' : ''}"><td class="col-check"><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggle(${i})"></td><td class="col-name">${item.name}</td><td class="col-price">${formatIDR(item.price)}</td></tr>`;
+                checklistBody.innerHTML += `<tr class="${isChecked ? 'checked' : ''}"><td class="col-check"><input type="checkbox" ${isChecked ? 'checked' : ''} onclick="return false;" onmousedown="toggle(${i})"></td><td class="col-name">${item.name}</td><td class="col-price">${formatIDR(item.price)}</td></tr>`;
             });
-
             document.getElementById('wallet-val').innerText = formatIDR(wallet);
             document.getElementById('target-val').innerText = formatIDR(remainingTarget);
             const sEl = document.getElementById('selisih-val');
@@ -96,20 +103,20 @@
         }
     </script>
     <style>
+        /* CSS tetap sama dengan sebelumnya */
         :root { --bg-color: #0d0d0d; --card-bg: #161616; --text-color: #e0e0e0; --accent-color: #D000FF; --success: #00ff88; --danger: #ff4d4d; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; padding: 20px; margin: 0; }
         .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 25px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); border: 1px solid #222; }
-        .dashboard { background: #222; padding: 20px; border-radius: 15px; margin-bottom: 25px; border-bottom: 3px solid var(--accent-color); position: relative; overflow: hidden; }
+        .dashboard { background: #222; padding: 20px; border-radius: 15px; margin-bottom: 25px; border-bottom: 3px solid var(--accent-color); }
         .main-balance { font-size: 2em; font-weight: bold; color: #fff; margin-bottom: 10px; }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.85em; }
-        .progress-container { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin: 15px 0 5px 0; }
-        .progress-bar { background: var(--accent-color); height: 100%; width: 0%; transition: 0.8s ease; box-shadow: 0 0 15px var(--accent-color); }
+        .progress-container { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 15px; }
+        .progress-bar { background: var(--accent-color); height: 100%; width: 0%; transition: 0.8s ease; }
         .input-group { background: #1a1a1a; padding: 15px; border-radius: 12px; margin-bottom: 25px; }
         input { background: #000; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
         .btn-row { display: flex; gap: 10px; }
         button { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-in { background: var(--success); } .btn-out { background: var(--danger); color: #fff; }
-        h3 { font-size: 0.9em; text-transform: uppercase; color: var(--accent-color); margin: 20px 0 10px 0; border-left: 3px solid var(--accent-color); padding-left: 10px; }
         .target-table { width: 100%; border-collapse: collapse; }
         .target-table tr.checked { opacity: 0.3; text-decoration: line-through; }
         .target-table td { padding: 12px 5px; border-bottom: 1px solid #222; }
@@ -122,7 +129,7 @@
 <body>
 <div class="container">
     <div class="dashboard">
-        <div style="font-size: 0.7em; opacity: 0.5; letter-spacing: 1px;">Total Budget:</div>
+        <div style="font-size: 0.7em; opacity: 0.5; letter-spacing: 1px;">TOTAL BUDGET: JACQUELYN</div>
         <div class="main-balance" id="wallet-val">Rp0</div>
         <div class="stats-grid">
             <div><div style="opacity: 0.5;">Belanjaan Sisa:</div><div id="target-val">Rp0</div></div>
@@ -131,7 +138,6 @@
         <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
         <div id="progress-percent" style="font-size: 0.65em; color: var(--accent-color); text-align: right; margin-top: 5px;">0%</div>
     </div>
-
     <div class="input-group">
         <input type="text" id="desc-input" placeholder="Nama Transaksi (e.g. Gajian)">
         <input type="number" id="amount-input" placeholder="Nominal Rp">
@@ -140,11 +146,9 @@
             <button class="btn-out" onclick="addTransaction('OUT')">Pengeluaran</button>
         </div>
     </div>
-
-    <h3>Build Checklist</h3>
+    <h3 style="font-size: 0.9em; color: var(--accent-color);">BUILD CHECKLIST</h3>
     <table class="target-table"><tbody id="checklist-body"></tbody></table>
-
-    <h3>History</h3>
+    <h3 style="font-size: 0.9em; color: var(--accent-color); margin-top: 20px;">HISTORY</h3>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         <div><p style="font-size: 0.7em; color: var(--success);">MASUK</p><table class="hist-table"><tbody id="table-in"></tbody></table></div>
         <div><p style="font-size: 0.7em; color: var(--danger);">KELUAR</p><table class="hist-table"><tbody id="table-out"></tbody></table></div>
@@ -152,4 +156,3 @@
 </div>
 </body>
 </html>
-
