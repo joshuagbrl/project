@@ -22,26 +22,19 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // --- LOGIKA MULTI-USER (ANTI HURUF KAPITAL) ---
         let rawInput = localStorage.getItem('xsr_user_key');
         if (!rawInput) {
-            rawInput = prompt("Masukkan Username (Huruf besar/kecil tidak berpengaruh):") || "guest";
+            rawInput = prompt("Masukkan Username:") || "guest";
         }
-        // Ubah ke kecil semua dan hapus spasi
         let userKey = rawInput.toLowerCase().trim().replace(/\s+/g, '');
         localStorage.setItem('xsr_user_key', userKey);
 
         const userPath = `users/${userKey}`;
         const dataRef = ref(db, userPath);
 
-        let state = { 
-            projectTitle: "Project: " + userKey.toUpperCase(), 
-            history: [], 
-            checkedStates: {}, 
-            customItems: [] 
-        };
+        let state = { projectTitle: "Project: " + userKey.toUpperCase(), history: [], checkedStates: {}, customItems: [] };
 
-        // DATA DEFAULT KHUSUS UNTUK USER: JACQUELYN
+        // DATA BAWAAN KAMU
         const jacquelynDefaults = [
             { name: "Helm KYT R2R", price: 2100000 },
             { name: "Action Cam", price: 1000000 },
@@ -54,72 +47,43 @@
             { name: "Radiator Guard", price: 150000 }
         ];
 
-        window.saveData = () => { set(dataRef, state); };
-
-        window.editTitle = () => {
-            const newTitle = prompt("Ganti Nama Project:", state.projectTitle);
-            if (newTitle) { state.projectTitle = newTitle; window.saveData(); }
-        };
-
-        window.logout = () => {
-            if(confirm("Logout dan ganti user?")) {
-                localStorage.removeItem('xsr_user_key');
-                location.reload();
+        window.importJacquelynData = () => {
+            if(confirm("Hapus data sekarang dan pakai list barang Jacquelyn?")) {
+                state.customItems = jacquelynDefaults;
+                state.projectTitle = "Project: XSR CAFE RACER";
+                set(dataRef, state);
+                alert("Data Berhasil Dimasukkan!");
             }
         };
 
+        window.saveData = () => { set(dataRef, state); };
+        window.logout = () => { localStorage.removeItem('xsr_user_key'); location.reload(); };
+        
         window.addNewItem = () => {
             const name = document.getElementById('item-name').value;
             const price = parseFloat(document.getElementById('item-price').value);
             if (!name || !price) return;
-            if(!state.customItems) state.customItems = [];
             state.customItems.push({ name, price });
             window.saveData();
-            document.getElementById('item-name').value = '';
-            document.getElementById('item-price').value = '';
         };
 
         window.addTransaction = (type) => {
             const desc = document.getElementById('desc-input').value;
             const amount = parseFloat(document.getElementById('amount-input').value);
             if (!desc || !amount) return;
-            if(!state.history) state.history = [];
             state.history.push({ desc, amount, type });
             window.saveData();
-            document.getElementById('desc-input').value = '';
-            document.getElementById('amount-input').value = '';
         };
 
         window.toggle = (i) => {
-            if(!state.checkedStates) state.checkedStates = {};
             state.checkedStates[i] = !state.checkedStates[i];
             window.saveData();
         };
 
         onValue(dataRef, (snapshot) => {
             const data = snapshot.val();
-            if (data) { 
-                state = data; 
-                render(); 
-            } else { 
-                // Jika user baru adalah 'jacquelyn', masukkan data bawaan
-                if (userKey === 'jacquelyn') {
-                    state = { 
-                        projectTitle: "Project: XSR CAFE RACER", 
-                        history: [], 
-                        checkedStates: {}, 
-                        customItems: jacquelynDefaults 
-                    };
-                } else {
-                    state = { 
-                        projectTitle: "Project: " + userKey.toUpperCase(), 
-                        history: [], 
-                        checkedStates: {}, 
-                        customItems: [] 
-                    };
-                }
-                window.saveData();
-            }
+            if (data) { state = data; render(); }
+            else { window.saveData(); }
         });
 
         function render() {
@@ -152,6 +116,9 @@
             document.getElementById('wallet-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(wallet);
             document.getElementById('target-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(remainingTarget);
             
+            // Tampilkan tombol migrasi HANYA jika username adalah jacquelyn
+            document.getElementById('migrasi-area').style.display = (userKey === 'jacquelyn') ? 'block' : 'none';
+
             const totalPlan = customItems.reduce((a, b) => a + b.price, 0);
             const percent = totalPlan > 0 ? Math.round((spentTarget / totalPlan) * 100) : 0;
             document.getElementById('progress-bar').style.width = percent + '%';
@@ -165,4 +132,66 @@
     </script>
     <style>
         :root { --bg-color: #0d0d0d; --card-bg: #161616; --text-color: #e0e0e0; --accent-color: #D000FF; --success: #00ff88; --danger: #ff4d4d; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex;
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .main-title { color: var(--accent-color); font-size: 1.8em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 3px; text-align: center; }
+        .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 25px; border-radius: 20px; border: 1px solid #222; }
+        .dashboard { background: #222; padding: 20px; border-radius: 15px; margin-bottom: 25px; border-bottom: 3px solid var(--accent-color); }
+        .main-balance { font-size: 2em; font-weight: bold; color: #fff; }
+        .progress-container { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin: 15px 0 5px 0; }
+        .progress-bar { background: var(--accent-color); height: 100%; width: 0%; transition: 0.8s ease; }
+        .input-group { background: #1a1a1a; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
+        input { background: #000; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-in { background: var(--success); } .btn-out { background: var(--danger); color: #fff; }
+        .btn-migrasi { background: #ffaa00; color: #000; margin-bottom: 20px; }
+        .target-table { width: 100%; border-collapse: collapse; }
+        .target-table tr.checked { opacity: 0.3; text-decoration: line-through; }
+        .target-table td { padding: 12px 5px; border-bottom: 1px solid #222; }
+        .txt-success { color: var(--success); } .txt-danger { color: var(--danger); }
+        .hist-table { width: 100%; font-size: 0.8em; border-collapse: collapse; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="main-title" id="main-title">LOADING...</div>
+    <div class="container">
+        
+        <div id="migrasi-area" style="display:none;">
+            <button class="btn-migrasi" onclick="importJacquelynData()">RESET & PAKAI DATA JACQUELYN</button>
+        </div>
+
+        <div class="dashboard">
+            <div style="font-size: 0.7em; opacity: 0.5;">TOTAL BUDGET:</div>
+            <div class="main-balance" id="wallet-val">Rp0</div>
+            <div style="font-size: 0.8em; opacity: 0.5;">Sisa Belanjaan: <span id="target-val">Rp0</span></div>
+            <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
+            <div id="progress-percent" style="font-size: 0.65em; color: var(--accent-color); text-align: right; margin-top: 5px;">0%</div>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="item-name" placeholder="Nama Barang">
+            <input type="number" id="item-price" placeholder="Harga Barang Rp">
+            <button style="background: #333; color: #fff;" onclick="addNewItem()">+ Tambah Barang</button>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="desc-input" placeholder="Keterangan Pemasukan/Pengeluaran">
+            <input type="number" id="amount-input" placeholder="Nominal Rp">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-in" onclick="addTransaction('IN')">Masuk</button>
+                <button class="btn-out" onclick="addTransaction('OUT')">Keluar</button>
+            </div>
+        </div>
+
+        <h3 style="font-size: 0.9em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 10px;">BUILD CHECKLIST</h3>
+        <table class="target-table"><tbody id="checklist-body"></tbody></table>
+        
+        <h3 style="font-size: 0.9em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 10px; margin-top: 20px;">HISTORY</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div><table class="hist-table"><tbody id="table-in"></tbody></table></div>
+            <div><table class="hist-table"><tbody id="table-out"></tbody></table></div>
+        </div>
+
+        <button style="background: transparent; color: #444; font-size: 0.7em; border: 1px solid #222; margin-top: 20px;" onclick="logout()">LOGOUT / GANTI USER</button>
+    </div>
+</body>
+</html>
