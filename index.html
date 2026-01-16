@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Bike: Jacquelyn</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -83,6 +84,32 @@
             }
         });
 
+        function fireCelebration() {
+            const duration = 3 * 1000;
+            const end = Date.now() + duration;
+
+            (function frame() {
+                confetti({
+                    particleCount: 3,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#D000FF', '#00ff88', '#ffffff']
+                });
+                confetti({
+                    particleCount: 3,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#D000FF', '#00ff88', '#ffffff']
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        }
+
         function render() {
             const checklistBody = document.getElementById('checklist-body');
             const tIn = document.getElementById('table-in');
@@ -90,17 +117,27 @@
             let wallet = 0, remainingTarget = 0, spentTarget = 0;
             const totalPlan = items.reduce((a, b) => a + b.price, 0);
 
+            state.history.forEach(h => {
+                if (h.type === 'IN') wallet += h.amount;
+                else wallet -= h.amount;
+            });
+
             tIn.innerHTML = ''; tOut.innerHTML = '';
             state.history.slice().reverse().forEach(h => {
                 const row = `<tr><td>${h.desc}</td><td style="text-align: right;" class="${h.type=='IN'?'txt-success':'txt-danger'}">${h.type=='IN'?'+':'-'} ${formatIDR(h.amount)}</td></tr>`;
-                if (h.type === 'IN') { wallet += h.amount; tIn.innerHTML += row; }
-                else { wallet -= h.amount; tOut.innerHTML += row; }
+                if (h.type === 'IN') tIn.innerHTML += row;
+                else tOut.innerHTML += row;
             });
 
             checklistBody.innerHTML = '';
             items.forEach((item, i) => {
                 const isChecked = state.checkedStates[i];
-                if (!isChecked) remainingTarget += item.price; else spentTarget += item.price;
+                if (isChecked) {
+                    spentTarget += item.price;
+                    wallet -= item.price; 
+                } else {
+                    remainingTarget += item.price;
+                }
                 checklistBody.innerHTML += `<tr class="${isChecked ? 'checked' : ''}"><td class="col-check"><input type="checkbox" ${isChecked ? 'checked' : ''} onmousedown="toggle(${i})" onclick="return false;"></td><td class="col-name">${item.name}</td><td class="col-price">${formatIDR(item.price)}</td></tr>`;
             });
 
@@ -109,14 +146,24 @@
             const sEl = document.getElementById('selisih-val');
             sEl.innerText = formatIDR(wallet - remainingTarget);
             sEl.className = (wallet - remainingTarget) >= 0 ? 'selisih-plus' : 'selisih-minus';
+            
             const percent = Math.round((spentTarget / totalPlan) * 100);
             document.getElementById('progress-bar').style.width = percent + '%';
             document.getElementById('progress-percent').innerText = percent + '% COMPLETED';
+
+            // CEK APAKAH 100% UNTUK SELEBRASI
+            if (percent === 100 && !window.hasCelebrated) {
+                fireCelebration();
+                window.hasCelebrated = true; // Biar gak meledak terus setiap render
+            } else if (percent < 100) {
+                window.hasCelebrated = false;
+            }
         }
     </script>
     <style>
         :root { --bg-color: #0d0d0d; --card-bg: #161616; --text-color: #e0e0e0; --accent-color: #D000FF; --success: #00ff88; --danger: #ff4d4d; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; padding: 20px; margin: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .main-title { color: var(--accent-color); font-size: 1.8em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 3px; text-shadow: 0 0 10px rgba(208, 0, 255, 0.3); }
         .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 25px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); border: 1px solid #222; }
         .dashboard { background: #222; padding: 20px; border-radius: 15px; margin-bottom: 25px; border-bottom: 3px solid var(--accent-color); }
         .main-balance { font-size: 2em; font-weight: bold; color: #fff; margin-bottom: 10px; }
@@ -138,32 +185,33 @@
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="dashboard">
-        <div style="font-size: 0.7em; opacity: 0.5; letter-spacing: 1px;">TOTAL BUDGET:</div>
-        <div class="main-balance" id="wallet-val">Rp0</div>
-        <div class="stats-grid">
-            <div><div style="opacity: 0.5;">Belanjaan Sisa:</div><div id="target-val">Rp0</div></div>
-            <div><div style="opacity: 0.5;">Status Dana:</div><div id="selisih-val">Rp0</div></div>
+    <div class="main-title">Project: XSR</div>
+    <div class="container">
+        <div class="dashboard">
+            <div style="font-size: 0.7em; opacity: 0.5; letter-spacing: 1px;">TOTAL BUDGET:</div>
+            <div class="main-balance" id="wallet-val">Rp0</div>
+            <div class="stats-grid">
+                <div><div style="opacity: 0.5;">Belanjaan Sisa:</div><div id="target-val">Rp0</div></div>
+                <div><div style="opacity: 0.5;">Status Dana:</div><div id="selisih-val">Rp0</div></div>
+            </div>
+            <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
+            <div id="progress-percent" style="font-size: 0.65em; color: var(--accent-color); text-align: right; margin-top: 5px;">0%</div>
         </div>
-        <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
-        <div id="progress-percent" style="font-size: 0.65em; color: var(--accent-color); text-align: right; margin-top: 5px;">0%</div>
-    </div>
-    <div class="input-group">
-        <input type="text" id="desc-input" placeholder="Nama Transaksi (e.g. Gajian)">
-        <input type="number" id="amount-input" placeholder="Nominal Rp">
-        <div class="btn-row">
-            <button class="btn-in" onclick="addTransaction('IN')">Pemasukan</button>
-            <button class="btn-out" onclick="addTransaction('OUT')">Pengeluaran</button>
+        <div class="input-group">
+            <input type="text" id="desc-input" placeholder="Nama Transaksi (e.g. Gajian)">
+            <input type="number" id="amount-input" placeholder="Nominal Rp">
+            <div class="btn-row">
+                <button class="btn-in" onclick="addTransaction('IN')">Pemasukan</button>
+                <button class="btn-out" onclick="addTransaction('OUT')">Pengeluaran</button>
+            </div>
+        </div>
+        <h3 style="font-size: 0.9em; color: var(--accent-color); margin: 20px 0 10px 0; border-left: 3px solid var(--accent-color); padding-left: 10px;">BUILD CHECKLIST</h3>
+        <table class="target-table"><tbody id="checklist-body"></tbody></table>
+        <h3 style="font-size: 0.9em; color: var(--accent-color); margin: 20px 0 10px 0; border-left: 3px solid var(--accent-color); padding-left: 10px;">HISTORY</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div><p style="font-size: 0.7em; color: var(--success);">MASUK</p><table class="hist-table"><tbody id="table-in"></tbody></table></div>
+            <div><p style="font-size: 0.7em; color: var(--danger);">KELUAR</p><table class="hist-table"><tbody id="table-out"></tbody></table></div>
         </div>
     </div>
-    <h3 style="font-size: 0.9em; color: var(--accent-color); margin: 20px 0 10px 0; border-left: 3px solid var(--accent-color); padding-left: 10px;">BUILD CHECKLIST</h3>
-    <table class="target-table"><tbody id="checklist-body"></tbody></table>
-    <h3 style="font-size: 0.9em; color: var(--accent-color); margin: 20px 0 10px 0; border-left: 3px solid var(--accent-color); padding-left: 10px;">HISTORY</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-        <div><p style="font-size: 0.7em; color: var(--success);">MASUK</p><table class="hist-table"><tbody id="table-in"></tbody></table></div>
-        <div><p style="font-size: 0.7em; color: var(--danger);">KELUAR</p><table class="hist-table"><tbody id="table-out"></tbody></table></div>
-    </div>
-</div>
 </body>
 </html>
