@@ -22,19 +22,24 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
+        // --- LOGIKA USER ---
         let rawInput = localStorage.getItem('xsr_user_key');
         if (!rawInput) {
             rawInput = prompt("Masukkan Username:") || "guest";
         }
-        let userKey = rawInput.toLowerCase().trim().replace(/\s+/g, '');
+        const userKey = rawInput.toLowerCase().trim().replace(/\s+/g, '');
         localStorage.setItem('xsr_user_key', userKey);
 
         const userPath = `users/${userKey}`;
         const dataRef = ref(db, userPath);
 
-        let state = { projectTitle: "Project: " + userKey.toUpperCase(), history: [], checkedStates: {}, customItems: [] };
+        let state = { 
+            projectTitle: "Project: " + userKey.toUpperCase(), 
+            history: [], 
+            checkedStates: {}, 
+            customItems: [] 
+        };
 
-        // DATA BAWAAN KAMU
         const jacquelynDefaults = [
             { name: "Helm KYT R2R", price: 2100000 },
             { name: "Action Cam", price: 1000000 },
@@ -48,11 +53,10 @@
         ];
 
         window.importJacquelynData = () => {
-            if(confirm("Hapus data sekarang dan pakai list barang Jacquelyn?")) {
+            if(confirm("Gunakan list barang default Jacquelyn?")) {
                 state.customItems = jacquelynDefaults;
                 state.projectTitle = "Project: XSR CAFE RACER";
                 set(dataRef, state);
-                alert("Data Berhasil Dimasukkan!");
             }
         };
 
@@ -63,130 +67,158 @@
             const name = document.getElementById('item-name').value;
             const price = parseFloat(document.getElementById('item-price').value);
             if (!name || !price) return;
+            if(!state.customItems) state.customItems = [];
             state.customItems.push({ name, price });
             window.saveData();
+            document.getElementById('item-name').value = '';
+            document.getElementById('item-price').value = '';
         };
 
         window.addTransaction = (type) => {
             const desc = document.getElementById('desc-input').value;
             const amount = parseFloat(document.getElementById('amount-input').value);
             if (!desc || !amount) return;
+            if(!state.history) state.history = [];
             state.history.push({ desc, amount, type });
             window.saveData();
+            document.getElementById('desc-input').value = '';
+            document.getElementById('amount-input').value = '';
         };
 
         window.toggle = (i) => {
+            if(!state.checkedStates) state.checkedStates = {};
             state.checkedStates[i] = !state.checkedStates[i];
             window.saveData();
         };
 
         onValue(dataRef, (snapshot) => {
             const data = snapshot.val();
-            if (data) { state = data; render(); }
-            else { window.saveData(); }
+            if (data) { 
+                state = data; 
+            }
+            render();
         });
 
         function render() {
-            document.getElementById('main-title').innerText = state.projectTitle;
+            // Update Judul
+            document.getElementById('main-title').innerText = state.projectTitle || "Project: " + userKey.toUpperCase();
+            
+            // Area Tombol Khusus Jacquelyn
+            document.getElementById('migrasi-area').style.display = (userKey === 'jacquelyn') ? 'block' : 'none';
+
             const checklistBody = document.getElementById('checklist-body');
             const tIn = document.getElementById('table-in');
             const tOut = document.getElementById('table-out');
+            
             let wallet = 0, remainingTarget = 0, spentTarget = 0;
             
             const history = state.history || [];
             const customItems = state.customItems || [];
             const checkedStates = state.checkedStates || {};
 
+            // Hitung Wallet dari History
             history.forEach(h => { wallet += (h.type === 'IN' ? h.amount : -h.amount); });
 
+            // Render History
             tIn.innerHTML = ''; tOut.innerHTML = '';
             history.slice().reverse().forEach(h => {
-                const row = `<tr><td>${h.desc}</td><td style="text-align: right;" class="${h.type=='IN'?'txt-success':'txt-danger'}">${h.type=='IN'?'+':'-'} ${new Intl.NumberFormat('id-ID').format(h.amount)}</td></tr>`;
+                const fmtPrice = new Intl.NumberFormat('id-ID').format(h.amount);
+                const row = `<tr><td>${h.desc}</td><td style="text-align: right;" class="${h.type=='IN'?'txt-success':'txt-danger'}">${h.type=='IN'?'+':'-'} ${fmtPrice}</td></tr>`;
                 if (h.type === 'IN') tIn.innerHTML += row; else tOut.innerHTML += row;
             });
 
+            // Render Checklist & Hitung Sisa
             checklistBody.innerHTML = '';
             customItems.forEach((item, i) => {
                 const isChecked = checkedStates[i];
-                if (isChecked) { spentTarget += item.price; wallet -= item.price; } 
-                else { remainingTarget += item.price; }
-                checklistBody.innerHTML += `<tr class="${isChecked ? 'checked' : ''}"><td class="col-check"><input type="checkbox" ${isChecked ? 'checked' : ''} onmousedown="toggle(${i})" onclick="return false;"></td><td class="col-name">${item.name}</td><td class="col-price">${new Intl.NumberFormat('id-ID').format(item.price)}</td></tr>`;
+                if (isChecked) { 
+                    spentTarget += item.price; 
+                    wallet -= item.price; 
+                } else { 
+                    remainingTarget += item.price; 
+                }
+                const fmtItemPrice = new Intl.NumberFormat('id-ID').format(item.price);
+                checklistBody.innerHTML += `<tr class="${isChecked ? 'checked' : ''}">
+                    <td class="col-check"><input type="checkbox" ${isChecked ? 'checked' : ''} onmousedown="toggle(${i})" onclick="return false;"></td>
+                    <td>${item.name}</td>
+                    <td style="text-align: right;">${fmtItemPrice}</td>
+                </tr>`;
             });
 
+            // Update Dashboard
             document.getElementById('wallet-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(wallet);
             document.getElementById('target-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(remainingTarget);
             
-            // Tampilkan tombol migrasi HANYA jika username adalah jacquelyn
-            document.getElementById('migrasi-area').style.display = (userKey === 'jacquelyn') ? 'block' : 'none';
-
             const totalPlan = customItems.reduce((a, b) => a + b.price, 0);
             const percent = totalPlan > 0 ? Math.round((spentTarget / totalPlan) * 100) : 0;
             document.getElementById('progress-bar').style.width = percent + '%';
             document.getElementById('progress-percent').innerText = percent + '% COMPLETED';
 
             if (percent === 100 && totalPlan > 0 && !window.hasCelebrated) {
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#D000FF', '#00ff88', '#ffffff'] });
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
                 window.hasCelebrated = true;
-            } else if (percent < 100) { window.hasCelebrated = false; }
+            } else if (percent < 100) { 
+                window.hasCelebrated = false; 
+            }
         }
     </script>
     <style>
         :root { --bg-color: #0d0d0d; --card-bg: #161616; --text-color: #e0e0e0; --accent-color: #D000FF; --success: #00ff88; --danger: #ff4d4d; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-        .main-title { color: var(--accent-color); font-size: 1.8em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 3px; text-align: center; }
-        .container { width: 100%; max-width: 600px; background: var(--card-bg); padding: 25px; border-radius: 20px; border: 1px solid #222; }
-        .dashboard { background: #222; padding: 20px; border-radius: 15px; margin-bottom: 25px; border-bottom: 3px solid var(--accent-color); }
-        .main-balance { font-size: 2em; font-weight: bold; color: #fff; }
-        .progress-container { background: #333; height: 10px; border-radius: 5px; overflow: hidden; margin: 15px 0 5px 0; }
-        .progress-bar { background: var(--accent-color); height: 100%; width: 0%; transition: 0.8s ease; }
-        .input-group { background: #1a1a1a; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
-        input { background: #000; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 8px; width: 100%; margin-bottom: 10px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .main-title { color: var(--accent-color); font-size: 1.6em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+        .container { width: 100%; max-width: 500px; background: var(--card-bg); padding: 20px; border-radius: 15px; border: 1px solid #222; box-sizing: border-box; }
+        .dashboard { background: #222; padding: 15px; border-radius: 12px; margin-bottom: 20px; border-bottom: 3px solid var(--accent-color); }
+        .main-balance { font-size: 1.8em; font-weight: bold; color: #fff; margin: 5px 0; }
+        .progress-container { background: #333; height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { background: var(--accent-color); height: 100%; width: 0%; transition: 0.5s; }
+        .input-group { background: #1a1a1a; padding: 12px; border-radius: 10px; margin-bottom: 15px; }
+        input { background: #000; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
         .btn-in { background: var(--success); } .btn-out { background: var(--danger); color: #fff; }
-        .btn-migrasi { background: #ffaa00; color: #000; margin-bottom: 20px; }
-        .target-table { width: 100%; border-collapse: collapse; }
+        .btn-migrasi { background: #ffaa00; color: #000; }
+        .target-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .target-table tr.checked { opacity: 0.3; text-decoration: line-through; }
-        .target-table td { padding: 12px 5px; border-bottom: 1px solid #222; }
+        .target-table td { padding: 10px 5px; border-bottom: 1px solid #222; }
         .txt-success { color: var(--success); } .txt-danger { color: var(--danger); }
-        .hist-table { width: 100%; font-size: 0.8em; border-collapse: collapse; margin-top: 10px; }
+        .hist-table { width: 100%; font-size: 0.75em; border-collapse: collapse; }
     </style>
 </head>
 <body>
-    <div class="main-title" id="main-title">LOADING...</div>
+    <div class="main-title" id="main-title">BIKE PROJECT</div>
     <div class="container">
         
         <div id="migrasi-area" style="display:none;">
-            <button class="btn-migrasi" onclick="importJacquelynData()">RESET & PAKAI DATA JACQUELYN</button>
+            <button class="btn-migrasi" onclick="importJacquelynData()">LOAD DATA JACQUELYN</button>
         </div>
 
         <div class="dashboard">
-            <div style="font-size: 0.7em; opacity: 0.5;">TOTAL BUDGET:</div>
+            <div style="font-size: 0.7em; opacity: 0.5;">DANA TERSEDIA:</div>
             <div class="main-balance" id="wallet-val">Rp0</div>
-            <div style="font-size: 0.8em; opacity: 0.5;">Sisa Belanjaan: <span id="target-val">Rp0</span></div>
+            <div style="font-size: 0.8em; opacity: 0.5;">Sisa Belanja: <span id="target-val">Rp0</span></div>
             <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
-            <div id="progress-percent" style="font-size: 0.65em; color: var(--accent-color); text-align: right; margin-top: 5px;">0%</div>
+            <div id="progress-percent" style="font-size: 0.6em; color: var(--accent-color); text-align: right;">0%</div>
         </div>
 
         <div class="input-group">
-            <input type="text" id="item-name" placeholder="Nama Barang">
-            <input type="number" id="item-price" placeholder="Harga Barang Rp">
-            <button style="background: #333; color: #fff;" onclick="addNewItem()">+ Tambah Barang</button>
+            <input type="text" id="item-name" placeholder="Tambah Barang Baru">
+            <input type="number" id="item-price" placeholder="Harga Rp">
+            <button style="background: #333; color: #fff;" onclick="addNewItem()">+ Simpan Barang</button>
         </div>
 
         <div class="input-group">
-            <input type="text" id="desc-input" placeholder="Keterangan Pemasukan/Pengeluaran">
+            <input type="text" id="desc-input" placeholder="Ket. Dompet (Gajian/Beli Bensin)">
             <input type="number" id="amount-input" placeholder="Nominal Rp">
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 8px;">
                 <button class="btn-in" onclick="addTransaction('IN')">Masuk</button>
                 <button class="btn-out" onclick="addTransaction('OUT')">Keluar</button>
             </div>
         </div>
 
-        <h3 style="font-size: 0.9em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 10px;">BUILD CHECKLIST</h3>
+        <h3 style="font-size: 0.8em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 8px;">CHECKLIST MODIF</h3>
         <table class="target-table"><tbody id="checklist-body"></tbody></table>
         
-        <h3 style="font-size: 0.9em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 10px; margin-top: 20px;">HISTORY</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <h3 style="font-size: 0.8em; color: var(--accent-color); border-left: 3px solid var(--accent-color); padding-left: 8px; margin-top: 20px;">HISTORY DOMPET</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div><table class="hist-table"><tbody id="table-in"></tbody></table></div>
             <div><table class="hist-table"><tbody id="table-out"></tbody></table></div>
         </div>
