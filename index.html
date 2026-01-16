@@ -45,37 +45,6 @@
             const dataRef = ref(db, userPath);
             let state = { projectTitle: "Project: " + userKey.toUpperCase(), history: [], checkedStates: {}, customItems: [] };
 
-            const jacquelynDefaults = [
-                { name: "Helm KYT R2R", price: 2100000 },
-                { name: "Action Cam", price: 1000000 },
-                { name: "Intercom Budget/Ejeas", price: 350000 },
-                { name: "Stang Clubman", price: 132000 },
-                { name: "Spion Bar End", price: 100000 },
-                { name: "Tail Tidy", price: 100000 },
-                { name: "Mudguard", price: 130000 },
-                { name: "Phone Holder GUB", price: 50000 },
-                { name: "Radiator Guard", price: 150000 }
-            ];
-
-            window.importJacquelynData = () => {
-                Swal.fire({
-                    title: 'Load Jacquelyn List?',
-                    text: "Change to XSR Cafe Racer list?",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#D000FF',
-                    cancelButtonColor: '#333',
-                    background: '#161616',
-                    color: '#e0e0e0'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        state.customItems = jacquelynDefaults;
-                        state.projectTitle = "Project: XSR CAFE RACER";
-                        set(dataRef, state);
-                    }
-                });
-            };
-
             window.deleteItem = (index) => {
                 Swal.fire({
                     title: 'Hapus Item?',
@@ -113,7 +82,7 @@
 
             window.addNewItem = () => {
                 const name = document.getElementById('item-name').value;
-                const price = parseFloat(document.getElementById('item-price').value.replace(/\./g, "")) || 0;
+                const price = parseFloat(document.getElementById('item-price').value.replace(/\D/g, "")) || 0;
                 if (!name || !price) return;
                 if(!state.customItems) state.customItems = [];
                 state.customItems.push({ name, price });
@@ -124,10 +93,14 @@
 
             window.addTransaction = (type) => {
                 const desc = document.getElementById('desc-input').value;
-                const amount = parseFloat(document.getElementById('amount-input').value.replace(/\./g, "")) || 0;
+                const amount = parseFloat(document.getElementById('amount-input').value.replace(/\D/g, "")) || 0;
                 if (!desc || !amount) return;
                 if(!state.history) state.history = [];
-                state.history.push({ desc, amount, type });
+                
+                const now = new Date();
+                const dateStr = `${now.getDate()}/${now.getMonth() + 1}`;
+                
+                state.history.push({ desc, amount, type, date: dateStr });
                 set(dataRef, state);
                 document.getElementById('desc-input').value = '';
                 document.getElementById('amount-input').value = '';
@@ -150,7 +123,6 @@
 
         function render(state, userKey) {
             document.getElementById('main-title').innerText = state.projectTitle || "Project: " + userKey.toUpperCase();
-            document.getElementById('migrasi-area').style.display = (userKey === 'jacquelyn') ? 'block' : 'none';
             const checklistBody = document.getElementById('checklist-body');
             const tIn = document.getElementById('table-in');
             const tOut = document.getElementById('table-out');
@@ -163,7 +135,8 @@
             tIn.innerHTML = ''; tOut.innerHTML = '';
             history.slice().reverse().forEach(h => {
                 const fmtPrice = new Intl.NumberFormat('id-ID').format(h.amount);
-                const row = `<tr><td>${h.desc}</td><td style="text-align: right;" class="${h.type=='IN'?'txt-success':'txt-danger'}">${h.type=='IN'?'+':'-'} ${fmtPrice}</td></tr>`;
+                const dateDisplay = h.date ? `<span style="opacity:0.4; font-size:0.8em; display:block;">${h.date}</span>` : '';
+                const row = `<tr><td>${dateDisplay}${h.desc}</td><td style="text-align: right;" class="${h.type=='IN'?'txt-success':'txt-danger'}">${h.type=='IN'?'+':'-'} ${fmtPrice}</td></tr>`;
                 if (h.type === 'IN') tIn.innerHTML += row; else tOut.innerHTML += row;
             });
 
@@ -181,17 +154,26 @@
                 </tr>`;
             });
 
-            document.getElementById('wallet-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(wallet);
+            const walletEl = document.getElementById('wallet-val');
+            const isEnough = (wallet >= remainingTarget && remainingTarget > 0);
+
+            if (isEnough) {
+                walletEl.style.color = "#5FC942"; 
+                if (!window.hasCelebratedGoal) {
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                    window.hasCelebratedGoal = true;
+                }
+            } else {
+                walletEl.style.color = "#ffffff";
+                window.hasCelebratedGoal = false;
+            }
+
+            walletEl.innerText = "Rp" + new Intl.NumberFormat('id-ID').format(wallet);
             document.getElementById('target-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(remainingTarget);
             const totalPlan = customItems.reduce((a, b) => a + b.price, 0);
             const percent = totalPlan > 0 ? Math.round((spentTarget / totalPlan) * 100) : 0;
             document.getElementById('progress-bar').style.width = percent + '%';
             document.getElementById('progress-percent').innerText = percent + '% COMPLETED';
-            
-            if (percent === 100 && totalPlan > 0 && !window.hasCelebrated) {
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                window.hasCelebrated = true;
-            } else if (percent < 100) { window.hasCelebrated = false; }
         }
 
         initApp();
@@ -205,35 +187,38 @@
     <style>
         :root { --bg-color: #20202B; --card-bg: #161616; --text-color: #e0e0e0; --accent-color: #D000FF; --success: #00ff88; --danger: #ff4d4d; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .logo-container { width: 80px; height: 80px; margin-bottom: 10px; }
+        .logo-container img { width: 100%; height: 100%; object-fit: contain; }
         .main-title { color: #ffffff; font-size: 1.6em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; text-align: center; cursor: pointer; }
         .container { width: 100%; max-width: 500px; background: var(--card-bg); padding: 20px; border-radius: 15px; border: 1px solid #222; box-sizing: border-box; }
         .dashboard { background: #222; padding: 15px; border-radius: 12px; margin-bottom: 20px; border-bottom: 3px solid var(--accent-color); }
         .main-balance { font-size: 1.8em; font-weight: bold; color: #fff; margin: 5px 0; }
+        .label-text { font-size: 0.7em; color: #ffffff; font-weight: 500; }
         .progress-container { background: #333; height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0; }
         .progress-bar { background: var(--accent-color); height: 100%; width: 0%; transition: 0.5s; }
         .input-group { background: #1a1a1a; padding: 12px; border-radius: 10px; margin-bottom: 15px; }
         input { background: #000; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 8px; box-sizing: border-box; }
         button { width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
         .btn-in { background: var(--success); } .btn-out { background: var(--danger); color: #fff; }
-        .btn-migrasi { background: #7E00AD; color: #fff; margin-bottom: 15px;}
         .btn-delete { color: var(--danger); font-weight: bold; cursor: pointer; font-size: 1.2em; padding: 0 5px; }
         .target-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
         .target-table tr.checked { opacity: 0.3; text-decoration: line-through; }
         .target-table td { padding: 10px 4px; border-bottom: 1px solid #222; }
         .txt-success { color: var(--success); } .txt-danger { color: var(--danger); }
         .hist-table { width: 100%; font-size: 0.75em; border-collapse: collapse; }
+        .hist-table td { padding: 8px 4px; border-bottom: 1px solid #222; vertical-align: middle; }
     </style>
 </head>
 <body>
+    <div class="logo-container">
+        <img src="logo.png" alt="Logo">
+    </div>
     <div class="main-title" id="main-title" onclick="editProjectTitle()">BIKE PROJECT</div>
     <div class="container">
-        <div id="migrasi-area" style="display:none;">
-            <button class="btn-migrasi" onclick="importJacquelynData()">Load Data</button>
-        </div>
         <div class="dashboard">
-            <div style="font-size: 0.7em; opacity: 0.5;">Balance Rn:</div>
+            <div class="label-text">Balance Rn:</div>
             <div class="main-balance" id="wallet-val">Rp0</div>
-            <div style="font-size: 0.8em; opacity: 0.5;">Budget needed: <span id="target-val">Rp0</span></div>
+            <div class="label-text">Budget needed: <span id="target-val" style="color:#ffffff;">Rp0</span></div>
             <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
             <div id="progress-percent" style="font-size: 0.6em; color: var(--accent-color); text-align: right;">0%</div>
         </div>
@@ -261,4 +246,3 @@
     </div>
 </body>
 </html>
-
