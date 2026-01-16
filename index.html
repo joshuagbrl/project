@@ -21,7 +21,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const dataRef = ref(db, 'project_data');
-        const MY_PIN = "150509"; 
+        const MY_PIN = "1505"; 
 
         const items = [
             { name: "Helm KYT R2R", price: 2100000 },
@@ -40,7 +40,7 @@
         // FUNGSI CEK KEAMANAN (INGAT SAYA)
         function checkAuth() {
             if (localStorage.getItem('jacquelyn_auth') === 'true') return true;
-            const pin = prompt("Masukkan PIN Keamanan Jacquelyn:");
+            const pin = prompt("Enter PIN:");
             if (pin === MY_PIN) {
                 localStorage.setItem('jacquelyn_auth', 'true');
                 return true;
@@ -135,7 +135,7 @@
 <body>
 <div class="container">
     <div class="dashboard">
-        <div style="font-size: 0.7em; opacity: 0.5; letter-spacing: 1px;">TOTAL BUDGET: JACQUELYN</div>
+        <div style="font-size: 0.7em; opacity: 0.5; letter-spacing: 1px;">TOTAL BUDGET:</div>
         <div class="main-balance" id="wallet-val">Rp0</div>
         <div class="stats-grid">
             <div><div style="opacity: 0.5;">Belanjaan Sisa:</div><div id="target-val">Rp0</div></div>
@@ -162,4 +162,5 @@
 </div>
 </body>
 </html>
+
 
