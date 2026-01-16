@@ -95,6 +95,22 @@
                 });
             };
 
+            window.editProjectTitle = async () => {
+                const { value: newTitle } = await Swal.fire({
+                    title: 'Edit Project Name',
+                    input: 'text',
+                    inputValue: state.projectTitle || "PROJECT: " + userKey.toUpperCase(),
+                    background: '#161616',
+                    color: '#e0e0e0',
+                    confirmButtonColor: '#D000FF',
+                    showCancelButton: true
+                });
+                if (newTitle) {
+                    state.projectTitle = newTitle.toUpperCase();
+                    set(dataRef, state);
+                }
+            };
+
             window.addNewItem = () => {
                 const name = document.getElementById('item-name').value;
                 const price = parseFloat(document.getElementById('item-price').value.replace(/\./g, "")) || 0;
@@ -189,7 +205,7 @@
     <style>
         :root { --bg-color: #20202B; --card-bg: #161616; --text-color: #e0e0e0; --accent-color: #D000FF; --success: #00ff88; --danger: #ff4d4d; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
-        .main-title { color: #ffffff; font-size: 1.6em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; text-align: center; }
+        .main-title { color: #ffffff; font-size: 1.6em; font-weight: bold; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; text-align: center; cursor: pointer; }
         .container { width: 100%; max-width: 500px; background: var(--card-bg); padding: 20px; border-radius: 15px; border: 1px solid #222; box-sizing: border-box; }
         .dashboard { background: #222; padding: 15px; border-radius: 12px; margin-bottom: 20px; border-bottom: 3px solid var(--accent-color); }
         .main-balance { font-size: 1.8em; font-weight: bold; color: #fff; margin: 5px 0; }
@@ -209,7 +225,7 @@
     </style>
 </head>
 <body>
-    <div class="main-title" id="main-title">BIKE PROJECT</div>
+    <div class="main-title" id="main-title" onclick="editProjectTitle()">BIKE PROJECT</div>
     <div class="container">
         <div id="migrasi-area" style="display:none;">
             <button class="btn-migrasi" onclick="importJacquelynData()">Load Data</button>
@@ -217,7 +233,7 @@
         <div class="dashboard">
             <div style="font-size: 0.7em; opacity: 0.5;">Budget Rn:</div>
             <div class="main-balance" id="wallet-val">Rp0</div>
-            <div style="font-size: 0.8em; opacity: 0.5;">Remaining Budget Needed: <span id="target-val">Rp0</span></div>
+            <div style="font-size: 0.8em; opacity: 0.5;">Budget needed: <span id="target-val">Rp0</span></div>
             <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
             <div id="progress-percent" style="font-size: 0.6em; color: var(--accent-color); text-align: right;">0%</div>
         </div>
@@ -245,4 +261,3 @@
     </div>
 </body>
 </html>
-
