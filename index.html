@@ -47,7 +47,7 @@
 
             window.deleteItem = (index) => {
                 Swal.fire({
-                    title: 'Hapus Item?',
+                    title: 'Delete Item?',
                     text: `Delete "${state.customItems[index].name}"?`,
                     icon: 'warning',
                     showCancelButton: true,
@@ -157,23 +157,28 @@
             const walletEl = document.getElementById('wallet-val');
             const isEnough = (wallet >= remainingTarget && remainingTarget > 0);
 
+            // Warna Balance jadi Hijau kalau cukup
             if (isEnough) {
                 walletEl.style.color = "#5FC942"; 
-                if (!window.hasCelebratedGoal) {
-                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                    window.hasCelebratedGoal = true;
-                }
             } else {
                 walletEl.style.color = "#ffffff";
-                window.hasCelebratedGoal = false;
             }
 
             walletEl.innerText = "Rp" + new Intl.NumberFormat('id-ID').format(wallet);
             document.getElementById('target-val').innerText = "Rp" + new Intl.NumberFormat('id-ID').format(remainingTarget);
+            
             const totalPlan = customItems.reduce((a, b) => a + b.price, 0);
             const percent = totalPlan > 0 ? Math.round((spentTarget / totalPlan) * 100) : 0;
             document.getElementById('progress-bar').style.width = percent + '%';
             document.getElementById('progress-percent').innerText = percent + '% COMPLETED';
+
+            // KONFETI HANYA PAS 100% CHECKED
+            if (percent === 100 && totalPlan > 0 && !window.hasCelebrated) {
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                window.hasCelebrated = true;
+            } else if (percent < 100) { 
+                window.hasCelebrated = false; 
+            }
         }
 
         initApp();
